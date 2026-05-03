@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To Do List - Wahyu Project</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+            --danger: #ef4444;
+            --success: #10b981;
+            --gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+        body { 
+            background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #334155);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: var(--text-main);
+            display: flex; 
+            justify-content: center; 
+            min-height: 100vh;
+            padding: 20px; 
+        }
+
+        .container { 
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            width: 100%; 
+            max-width: 480px; 
+            padding: 30px; 
+            border-radius: 28px; 
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); 
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-container { margin-bottom: 20px; }
+        .progress-text { font-size: 12px; margin-bottom: 5px; color: var(--accent-color); font-weight: bold; }
+        .progress-bar { background: #0f172a; height: 8px; border-radius: 10px; overflow: hidden; }
+        #progressFill { background: var(--gradient); width: 0%; height: 100%; transition: 0.5s ease; }
+
+    
+
+        .input-section { background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 18px; margin-bottom: 25px; }
+        input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 15px; outline: none; margin-bottom: 12px; }
+        
+        .row { display: flex; gap: 10px; }
+        button.add-btn { flex: 1; background: var(--gradient); color: white; border: none; padding: 14px; border-radius: 12px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+
+        li { 
+            background: rgba(255, 255, 255, 0.05); 
+            padding: 18px; 
+            border-radius: 16px; 
+            margin-bottom: 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-left: 5px solid var(--accent-color); 
+            transition: 0.3s;
+        }
+        li.completed { border-left-color: var(--success); background: rgba(16, 185, 129, 0.1); }
+        li.urgent { border-left-color: var(--danger); animation: pulse 2s infinite; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .timer-box { font-family: monospace; font-size: 12px; color: var(--accent-color); margin-top: 5px; }
+        .expired-text { color: var(--danger); font-weight: bold; }
+
+        .watermark { text-align: center; margin-top: 30px; font-size: 11px; color: var(--text-dim); letter-spacing: 3px; font-weight: bold; opacity: 0.6; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>To Do List</h2>
+        
+        <div class="progress-container">
+            <div class="progress-text">TUGAS SELESAI: <span id="progressPercent">0%</span></div>
+            <div class="progress-bar"><div id="progressFill"></div></div>
+        </div>
+        
+        <div class="input-section">
+            <input type="text" id="taskInput" placeholder="Ketik tugas di sini...">
+            <div class="row">
+                <input type="text" id="deadlineInput" placeholder="📅 Atur Jadwal" onfocus="(this.type='datetime-local')" onblur="if(!this.value) this.type='text'">
+                <button class="add-btn" onclick="addTask()">TAMBAH</button>
+            </div>
+        </div>
+
+        <ul id="taskList"></ul>
+        <div class="watermark">WAHYU PROJECT © 2026</div>
+    </div>
+
+    <!-- Sound Effects -->
+    <audio id="doneSound" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"></audio>
+    <audio id="alertSound" src="https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"></audio>
+
+    <script>
+        let tasks = JSON.parse(localStorage.getItem("wahyu_final_v3")) || [];
+
+        // Minta Izin Notifikasi Browser
+        if ("Notification" in window) {
+            Notification.requestPermission();
+        }
+
+        function renderTasks() {
+            const taskList = document.getElementById("taskList");
+            taskList.innerHTML = ""; 
+            let completedCount = 0;
+
+            tasks.forEach((task, index) => {
+                if (task.completed) completedCount++;
+
+                const li = document.createElement("li");
+                if (task.completed) li.classList.add("completed");
+                
+                // Tandai kartu jadi merah jika deadline < 1 jam
+                const diff = new Date(task.deadline).getTime() - new Date().getTime();
+                if (!task.completed && diff > 0 && diff < 3600000) li.classList.add("urgent");
+
+                li.innerHTML = `
+                    <div style="flex:1" onclick="toggleTask(${index})">
+                        <span style="cursor:pointer; font-weight:600">${task.text} ${task.completed ? '✅' : ''}</span>
+                        <div id="timer-${index}" class="timer-box">Menghitung...</div>
+                    </div>
+                    <button onclick="deleteTask(${index})" style="background:none; border:none; color:var(--danger); cursor:pointer;">Hapus</button>
+                `;
+                taskList.appendChild(li);
+            });
+
+            const percent = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+            document.getElementById("progressFill").style.width = percent + "%";
+            document.getElementById("progressPercent").innerText = percent + "%";
+        }
+
+        function updateTimers() {
+            const now = new Date().getTime();
+            tasks.forEach((task, index) => {
+                const timerEl = document.getElementById(`timer-${index}`);
+                if (!timerEl || task.completed) {
+                    if(task.completed) timerEl.innerHTML = "TUGAS SELESAI";
+                    return;
+                }
+
+                const deadlineTime = new Date(task.deadline).getTime();
+                const diff = deadlineTime - now;
+
+                if (diff <= 0) {
+                    timerEl.innerHTML = "⚠️ WAKTU SUDAH HABIS!";
+                    timerEl.className = "timer-box expired-text";
+                    
+                    // Notif Pas Selesai/Habis Waktunya
+                    if (!task.notifiedEnd) {
+                        sendNotification("Waktu Habis!", `Tugas "${task.text}" sudah melewati deadline.`);
+                        document.getElementById("alertSound").play();
+                        task.notifiedEnd = true;
+                        save(false);
+                    }
+                } else {
+                    const h = Math.floor(diff / 3600000);
+                    const m = Math.floor((diff % 3600000) / 60000);
+                    const s = Math.floor((diff % 60000) / 1000);
+                    timerEl.innerHTML = `⏳ Sisa: ${h}j ${m}m ${s}d`;
+
+                    // Notif Mendekati (10 Menit Sebelum)
+                    if (diff <= 600000 && !task.notifiedSoon) {
+                        sendNotification("Deadline Mendekati!", `Tugas "${task.text}" Cepat kerjakan!`);
+                        document.getElementById("alertSound").play();
+                        task.notifiedSoon = true;
+                        save(false);
+                        renderTasks(); // Update warna kartu jadi merah (urgent)
+                    }
+                }
+            });
+        }
+
+        function sendNotification(title, body) {
+            if (Notification.permission === "granted") {
+                new Notification("Wahyu Project", { body, icon: "https://cdn-icons-png.flaticon.com/512/1792/1792931.png" });
+            }
+        }
+
+        function addTask() {
+    const t = document.getElementById("taskInput");
+    const d = document.getElementById("deadlineInput");
+    
+    // Proteksi: Cek apakah waktu yang dipilih sudah lewat
+    const selectedDate = new Date(d.value).getTime();
+    const now = new Date().getTime();
+
+    if (!t.value || !d.value) return alert("Isi tugas dan jadwalnya dulu ya!");
+    if (selectedDate < now) return alert("Wahyu, masa lalu jangan diingat! Pilih waktu yang akan datang ya.");
+
+    tasks.push({ 
+        text: t.value, 
+        deadline: d.value, 
+        completed: false, 
+        notifiedSoon: false, 
+        notifiedEnd: false 
+    });
+    t.value = ""; d.value = "";
+    save();
+}
+
+        function toggleTask(i) {
+            tasks[i].completed = !tasks[i].completed;
+            if (tasks[i].completed) {
+                document.getElementById("doneSound").play();
+                sendNotification("Tugas Selesai!", `Mantap! Tugas "${tasks[i].text}" sudah beres.`);
+            }
+            save();
+        }
+
+        function deleteTask(i) { tasks.splice(i, 1); save(); }
+        
+        function save(shouldRender = true) { 
+            localStorage.setItem("wahyu_final_v3", JSON.stringify(tasks)); 
+            if(shouldRender) renderTasks(); 
+        }
+
+        setInterval(updateTimers, 1000);
+        renderTasks();
+
+        // Registrasi Service Worker agar bisa di-install di HP
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('Service Worker Terdaftar!', reg))
+      .catch(err => console.log('Gagal Daftar SW', err));
+  });
+}
+
+    </script>
+</body>
+</html>

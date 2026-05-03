@@ -1,0 +1,17 @@
+{
+  "name": "To Do List Wahyu Project",
+  "short_name": "Wahyu Project",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#38bdf8",
+  "description": "Aplikasi To Do List keren buatan Wahyu Project.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1792/1792931.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
